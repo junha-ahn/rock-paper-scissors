@@ -1,0 +1,27 @@
+{
+  "name": "rock-paper-scissors",
+  "version": "1.0.0",
+  "description": "Simple rock-paper-scissors game with WebRTC",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon src/app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/junha-ahn/rock-paper-scissors.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/junha-ahn/rock-paper-scissors/issues"
+  },
+  "homepage": "https://github.com/junha-ahn/rock-paper-scissors#readme",
+  "dependencies": {
+    "express": "^4.17.1",
+    "winston": "^3.2.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.2"
+  }
+}
