@@ -4,5 +4,5 @@ module.exports = server => {
 };
 
 function onConnection(socket) {
-
+  console.log('connected : ', socket.id)
 }
