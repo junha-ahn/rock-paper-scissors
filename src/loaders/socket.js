@@ -12,31 +12,27 @@ const activeRooms = new Map();
 
   key(roomName), 
   value: [socketId]
-      
 */
 
 const joinRoom = id => room => {
+  const response = (status, partner = null) => ({status, partner}) // status: join 성공 여부, partner: 파트너 socket id
   if (activeRooms.has(room)) {
     const ids = activeRooms.get(room);
-    
-    if (_.some(ids, id)) return true;
-    if (ids.length >= ROOM_MAXIMUM) return false;
+    // if (_.some(ids, id)) return response(true);
+    if (ids.length >= ROOM_MAXIMUM) return response(false);
     ids.push(id);
     activeRooms.set(room, ids)
-    return true;
-  } else {
-    activeRooms.set(room, [id])
-    return true;
+    return response(true, ids[0]);
   }
+  activeRooms.set(room, [id])
+  return response(true);
 }
 const outRoom = id => room => {
   const ids = activeRooms.get(room)
   if (Array.isArray(ids)) {
     const newIds = _.filter(ids, _id => _id !== id)
     if (newIds.length) activeRooms.set(room, newIds)
-    else {
-      activeRooms.delete(room)
-    }
+    else activeRooms.delete(room)
   }
 }
 
@@ -45,20 +41,25 @@ module.exports = server => {
   io.on('connection', (socket) => {
     socket.on('join-room', (data) => {
       const room  = data.room || uuidv4();
-      const status = joinRoom(socket.id)(room);
+      const {
+        status,
+        partner, 
+      } = joinRoom(socket.id)(room);
 
-      if (status) { // join 성공
+      if (status) {
         socket.join(room);
         if (socket.joinRooms)  {
           socket.joinRooms.push(room)
         } else {
           socket.joinRooms = [room];
         }
+        io.to(partner).emit('partner-joined-room', {})
       };
 
       io.to(socket.id).emit('joined-room', {
         status,
         room,
+        partner,
       });
     });
 

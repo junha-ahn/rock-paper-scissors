@@ -3,46 +3,35 @@ const config = {
   DRAW: '비겼습니다',
   LOSE: '졌습니다',
 }
-function getParameterByName(name, url) {
-  if (!url) url = window.location.href;
-  name = name.replace(/[\[\]]/g, '\\$&');
-  var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
-      results = regex.exec(url);
-  if (!results) return null;
-  if (!results[2]) return '';
-  return decodeURIComponent(results[2].replace(/\+/g, ' '));
-}
-const map = (iter, f) => {
-  const res = [];
-  for (const a of iter) {
-    res.push(f(a))
-  }
-  return res;
-};
-
 
 const room = getParameterByName('key');
 
 // class GameConsole 
 // value private화를 위한, IIFE return class
 const GameConsole = (() => { 
-  const player = Symbol('player');
-  const partner = Symbol('partner');
+  const partnerStatus = Symbol('player');
+  const playerValue = Symbol('playerValue');
+  const partnerValue = Symbol('partnerValue');
 
   return class {
-    constructor() {
-      this[player] = null;
-      this[partner] = null;
+    constructor(_partnerStatus = false) {
+      this[partnerStatus] = _partnerStatus;
+      this[playerValue] = null;
+      this[partnerValue] = null;
     }
     set playerValue(value) { 
-      if (value) this[player] = value 
+      if (value) this[playerValue] = value 
     }
     set partnerValue(value) { 
-      if (value) this[partner] = value
+      if (value) this[partnerValue] = value
     }
-  
-    get playerValue() { return this[player] }
-    get partnerValue() { return this[partner] }
+    set partnerStatus(value) { 
+      if (value) this[partnerStatus] = value
+    }
+    get playerValue() { return this[playerValue] }
+    get partnerValue() { return this[partnerValue] }
+    get partnerStatus() { return this[partnerStatus] }
+
     get result() {
       const player = this.playerValue;
       const partner = this.partnerValue;
@@ -65,9 +54,9 @@ const GameConsole = (() => {
     }
   }
 })()
+const game = new GameConsole()
 
 function init() {
-  const game = new GameConsole()
 
   const gameOver = () => {
     try {
@@ -79,11 +68,16 @@ function init() {
   }
 
   const clickBtn = isPartner => value => {
-    if (isPartner) game.partnerValue = value
-    else game.playerValue = value
+    if (isPartner) { 
+      game.partnerValue = value 
+    }
+    else {
+      if (!game.partnerStatus) return alert('상대를 기다려주세요')
+      game.playerValue = value
+    }
 
     const btnList = document.querySelectorAll(`#${isPartner ? 'partner' : 'player'} .game-btn`);
-    map(btnList, btn => {
+    _.map(btnList, btn => {
       if (btn.id === value) {
         btn.setAttribute("class", "game-btn");
       } else {
@@ -140,4 +134,8 @@ socket.emit("join-room", {
 socket.on("joined-room", (data) => {
   if (!data.status) return alert('이미 가득찬 방입니다');
   if (room !== data.room) location.href = "/?key=" + data.room;
+  if (data.partner) game.partnerStatus = true;
+});
+socket.on("partner-joined-room", (data) => {
+  game.partnerStatus = true;
 });
