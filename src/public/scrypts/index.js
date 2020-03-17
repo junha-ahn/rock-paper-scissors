@@ -3,6 +3,15 @@ const config = {
   DRAW: '비겼습니다',
   LOSE: '졌습니다',
 }
+function getParameterByName(name, url) {
+  if (!url) url = window.location.href;
+  name = name.replace(/[\[\]]/g, '\\$&');
+  var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+      results = regex.exec(url);
+  if (!results) return null;
+  if (!results[2]) return '';
+  return decodeURIComponent(results[2].replace(/\+/g, ' '));
+}
 const map = (iter, f) => {
   const res = [];
   for (const a of iter) {
@@ -10,6 +19,9 @@ const map = (iter, f) => {
   }
   return res;
 };
+
+
+const room = getParameterByName('key');
 
 // class GameConsole 
 // value private화를 위한, IIFE return class
@@ -53,7 +65,6 @@ const GameConsole = (() => {
     }
   }
 })()
-
 
 function init() {
   const game = new GameConsole()
@@ -117,4 +128,16 @@ function init() {
   initBtn()
   makeNotice()
 }
+
 init()
+
+const socket = io();
+
+socket.emit("join-room", {
+  room,
+});
+
+socket.on("joined-room", (data) => {
+  if (!data.status) return alert('이미 가득찬 방입니다');
+  if (room !== data.room) location.href = "/?key=" + data.room;
+});
