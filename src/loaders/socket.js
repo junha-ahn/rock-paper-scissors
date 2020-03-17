@@ -31,8 +31,13 @@ const outRoom = id => room => {
   const ids = activeRooms.get(room)
   if (Array.isArray(ids)) {
     const newIds = _.filter(ids, _id => _id !== id)
-    if (newIds.length) activeRooms.set(room, newIds)
-    else activeRooms.delete(room)
+
+    if (newIds.length) {
+      activeRooms.set(room, newIds)
+      return { partner: newIds[0] }
+    }
+    activeRooms.delete(room)
+    return { partner: null }
   }
 }
 
@@ -53,7 +58,7 @@ module.exports = server => {
         } else {
           socket.joinRooms = [room];
         }
-        io.to(partner).emit('partner-joined-room', {})
+        io.to(partner).emit('partner-join-room', {})
       };
 
       io.to(socket.id).emit('joined-room', {
@@ -70,7 +75,12 @@ module.exports = server => {
       } = socket;
       const outRooms = (id, joinRooms) => {
         const out = outRoom(id)
-        _.map(joinRooms, room => out(room))
+        _.forEach(joinRooms, room => {
+          const {
+            partner 
+          } = out(room)
+          if (partner) io.to(partner).emit('partner-out-room', {})
+        })
       } 
       outRooms(id, joinRooms);
     });
