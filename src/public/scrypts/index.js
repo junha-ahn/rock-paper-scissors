@@ -6,20 +6,11 @@ const config = {
 }
 
 const socket = io();
-const connectData = (() => {
-  const connection = new RTCPeerConnection();
-  // const channel = connection.createDataChannel("channel")
 
-  return {
-    isAlreadyCalling: false,
-    connection,
-    // channel,
-  }
-})()
-
-// class GameConsole 
-// value private화를 위한, IIFE return class
 const GameConsole = (() => { 
+  // class GameConsole 
+  // value private화를 위한, IIFE return class
+
   const partnerStatus = Symbol('player');
   const playerValue = Symbol('playerValue');
   const partnerValue = Symbol('partnerValue');
@@ -68,6 +59,23 @@ const GameConsole = (() => {
 const game = new GameConsole()
 
 function init() {
+  const connectData = (() => {
+    const connection = new RTCPeerConnection();
+    const channel = connection.createDataChannel("label")
+    connection.ondatachannel = function(event) {
+      const channel = event.channel;
+      channel.onmessage = function(event) {
+        console.log('onmessage: ', event.data);
+        partnerClickBtn(event.data)
+      }
+    }
+  
+    return {
+      isAlreadyCalling: false,
+      connection,
+      channel,
+    }
+  })()
   const writeNotice = (game) => {
     const text = {
       [config.WIN]: '이겼습니다',
@@ -87,11 +95,6 @@ function init() {
     notice.textContent = getText(game);
   }
   const clickBtn = isPartner => value => {
-    if (isPartner) game.partnerValue = value 
-    else  game.playerValue = value
-    
-    // connectData.channel.send(value);
-
     const btnList = document.querySelectorAll(`#${isPartner ? 'partner' : 'player'} .game-btn`);
     _.map(btnList, btn => {
       if (btn.id === value) {
@@ -103,12 +106,17 @@ function init() {
     writeNotice(game);
   }
   const partnerClickBtn = value => {
+    console.log('partnerClickBtn :: ', value)
+    game.partnerValue = value 
     clickBtn(true)(value)
   }
   const playerClickBtn = ({target}) => {
+    const value = target.id;
     if (!game.partnerStatus) return alert('상대를 기다려주세요')
     if (game.playerValue) return alert('중복 클릭은 불가능합니다')
-    clickBtn(false)(target.id)
+    game.playerValue = value
+    connectData.channel.send(value);
+    clickBtn(false)(value)
   };
   const initHTML = () => {
     const initBtn = () => {
