@@ -7,7 +7,14 @@ function getParameterByName(name, url) {
   if (!results[2]) return '';
   return decodeURIComponent(results[2].replace(/\+/g, ' '));
 }
+const hasValue = value => value !== undefined && value !== null && value !== ''
+
 const _ = {
+  forEach: (iter, f) => {
+    for (const a of iter) {
+      f(a)
+    }
+  },
   map: (iter, f) => {
     const res = [];
     for (const a of iter) {

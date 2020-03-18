@@ -4,13 +4,9 @@ const config = {
   DRAW: 0,
   LOSE: -1,
 }
-
-const socket = io();
-
 const GameConsole = (() => { 
   // class GameConsole 
   // value private화를 위한, IIFE return class
-
   const partnerStatus = Symbol('player');
   const playerValue = Symbol('playerValue');
   const partnerValue = Symbol('partnerValue');
@@ -38,7 +34,7 @@ const GameConsole = (() => {
       const player = this.playerValue;
       const partner = this.partnerValue;
   
-      if (player === null || partner === null) throw new Error('선택 이전');
+      if (!(hasValue(player) && hasValue(partner))) throw new Error('선택 이전');
   
       if (player === partner) return config.DRAW;
       if (player === 'rock') {
@@ -56,27 +52,23 @@ const GameConsole = (() => {
     }
   }
 })()
-const game = new GameConsole()
+const socket = io();
 
 function init() {
-  const connectData = (() => {
-    const connection = new RTCPeerConnection();
-    const channel = connection.createDataChannel("label")
-    connection.ondatachannel = function(event) {
-      const channel = event.channel;
-      channel.onmessage = function(event) {
-        console.log('onmessage: ', event.data);
-        partnerClickBtn(event.data)
-      }
+  const game = new GameConsole()
+
+  let isAlreadyCalling = false
+  const perrConnection = new RTCPeerConnection()
+  const dataChannel = perrConnection.createDataChannel("label")
+  perrConnection.ondatachannel = function(event) {
+    const channel = event.channel;
+    channel.onmessage = function(event) {
+      console.log('onmessage: ', event.data);
+      clickBtn(true)(event.data)
     }
-  
-    return {
-      isAlreadyCalling: false,
-      connection,
-      channel,
-    }
-  })()
-  const writeNotice = (game) => {
+  }
+
+  function writeNotice() {
     const text = {
       [config.WIN]: '이겼습니다',
       [config.DRAW]: '비겼습니다',
@@ -86,63 +78,55 @@ function init() {
       WATTING_PARTNER_CLICK: '[파트너: 접속] 상대의 선택을 기다리고 있습니다.',
     }
     const getText = (game) => {
-      if (!game.partnerStatus) return text.WATTING_PARTNER
-      if (!game.playerValue) return text.WATTING_PLAYER_CLICK
-      if (!game.parterValue) return text.WATTING_PARTNER_CLICK
-      return text[game.result]
+      try {
+        return text[game.result] // 이미 완료된 게임일 경우, 항상 같은 결과 Return
+      } catch {
+        if (!game.partnerStatus) return text.WATTING_PARTNER
+        if (!hasValue(game.playerValue)) return text.WATTING_PLAYER_CLICK
+        if (!hasValue(game.partnerValue)) return text.WATTING_PARTNER_CLICK
+      }
     }
     const notice = document.querySelector('#notice');
     notice.textContent = getText(game);
   }
-  const clickBtn = isPartner => value => {
-    const btnList = document.querySelectorAll(`#${isPartner ? 'partner' : 'player'} .game-btn`);
-    _.map(btnList, btn => {
-      if (btn.id === value) {
-        btn.setAttribute("class", "game-btn");
-      } else {
+  function resetBtn(first) {
+    // .game-btn 노출/숨김처리 관련 함수
+    const partners = document.querySelectorAll(`#partner .game-btn`);
+    const players = document.querySelectorAll(`#player .game-btn`);
+    _.forEach(players, btn => {
+      if (first) btn.addEventListener('click', (event) => {  clickBtn(false)(event.target.getAttribute("value")) });
+      btn.setAttribute("class", "game-btn");
+      if (hasValue(game.playerValue) && btn.getAttribute("value") !== game.playerValue) {
         btn.setAttribute("class", "game-btn hidden");
       }
     })
-    writeNotice(game);
-  }
-  const partnerClickBtn = value => {
-    console.log('partnerClickBtn :: ', value)
-    game.partnerValue = value 
-    clickBtn(true)(value)
-  }
-  const playerClickBtn = ({target}) => {
-    const value = target.id;
-    if (!game.partnerStatus) return alert('상대를 기다려주세요')
-    if (game.playerValue) return alert('중복 클릭은 불가능합니다')
-    game.playerValue = value
-    connectData.channel.send(value);
-    clickBtn(false)(value)
-  };
-  const initHTML = () => {
-    const initBtn = () => {
-      function makeBtn(name, isPartner) {
-        const btn = document.createElement("span");
-        btn.setAttribute("id", name);
-        btn.innerHTML = name === "rock" ? `✊` : name === "paper" ? `🤚` : `✌️`;
+    _.forEach(partners, btn => {
+      btn.setAttribute("class", "game-btn hidden");
+      if (game.playerValue && btn.getAttribute("value") === game.partnerValue) {
         btn.setAttribute("class", "game-btn");
-  
-        if (isPartner) btn.classList.add("hidden");
-        else btn.addEventListener('click', playerClickBtn);
-  
-        return btn
       }
-      const partner = document.querySelector('#partner');
-      const player = document.querySelector('#player');
-      partner.appendChild(makeBtn('rock', true));
-      partner.appendChild(makeBtn('paper', true));
-      partner.appendChild(makeBtn('scissor', true));
-      
-      player.appendChild(makeBtn('rock'));
-      player.appendChild(makeBtn('paper'));
-      player.appendChild(makeBtn('scissor'));
+    })
+  }
+  function initPage(first) {
+    resetBtn(first)
+    writeNotice()
+  }
+  function clickBtn(isPartner) {
+    return value => {
+      try { 
+        if (isPartner) {
+          game.partnerValue = value
+        } else {
+          if (!game.partnerStatus) throw new Error('상대를 기다려주세요')
+          if (game.playerValue) throw new Error('중복 클릭은 불가능합니다')
+          game.playerValue = value
+          dataChannel.send(value);
+        }
+        initPage()
+      } catch (e) {
+        alert(e.message)
+      }
     }
-    initBtn()
-    writeNotice(game)
   }
   
   socket.emit("join-room", {
@@ -153,29 +137,28 @@ function init() {
     if (!data.status) return alert('이미 가득찬 방입니다');
     if (config.room !== data.room) location.href = "/?key=" + data.room;
     if (data.partner) game.partnerStatus = true;
-    writeNotice(game)
+    writeNotice()
   });
   socket.on("partner-join-room", ({
     partnerId,
   }) => {
     game.partnerStatus = true;
     callUser(partnerId);
-    writeNotice(game)
+    writeNotice()
   });
   socket.on("partner-out-room", (data) => {
     game.partnerStatus = false;
-    connectData.isAlreadyCalling = false;
-    writeNotice(game)
+    // isAlreadyCalling = false;
+    writeNotice()
   });
 
   socket.on("call-made", async (data) => {
-    console.log('on call-made')
     // 받은 offer에 대한 설정 후, answer 전달
-    await connectData.connection.setRemoteDescription(
+    await perrConnection.setRemoteDescription(
       new RTCSessionDescription(data.offer)
     );
-    const answer = await connectData.connection.createAnswer();
-    await connectData.connection.setLocalDescription(new RTCSessionDescription(answer));
+    const answer = await perrConnection.createAnswer();
+    await perrConnection.setLocalDescription(new RTCSessionDescription(answer));
   
     socket.emit("make-answer", {
       answer,
@@ -184,19 +167,19 @@ function init() {
     getCalled = true;
   });
   socket.on("answer-made", async data => {
-    await connectData.connection.setRemoteDescription(
+    await perrConnection.setRemoteDescription(
       new RTCSessionDescription(data.answer)
     );
   
-    if (!connectData.isAlreadyCalling) {
-      connectData.isAlreadyCalling = true;
+    if (!isAlreadyCalling) {
+      isAlreadyCalling = true;
       callUser(data.id);
     }
   });
 
   async function callUser(socketId) {
-    const offer = await connectData.connection.createOffer();  
-    connectData.connection.setLocalDescription(new RTCSessionDescription(offer));
+    const offer = await perrConnection.createOffer();  
+    perrConnection.setLocalDescription(new RTCSessionDescription(offer));
     // offer 작성 후, 파트너에게 전송
 
     socket.emit("call-user", {
@@ -205,10 +188,7 @@ function init() {
     });
   }
   
-
-  initHTML()
+  initPage(true)
 }
-  
-
 init()
 

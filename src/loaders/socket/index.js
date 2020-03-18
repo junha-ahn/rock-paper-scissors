@@ -45,17 +45,13 @@ module.exports = server => {
       } = socket;
       log(socket, `disconnect`)
 
-      const outRooms = (id, joinRooms) => {
-        const out = RoomService.out(id)
-        _.forEach(joinRooms, room => {
-          const {
-            partner 
-          } = out(room)
-          if (partner) io.to(partner).emit('partner-out-room', {})
-        })
-      }
-
-      outRooms(id, joinRooms);
+      const out = RoomService.out(id)
+      _.forEach(joinRooms, room => {
+        const {
+          partner 
+        } = out(room)
+        if (partner) io.to(partner).emit('partner-out-room', {})
+      })
     });
 
     socket.on("call-user", ({
