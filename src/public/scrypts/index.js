@@ -6,14 +6,16 @@ const config = {
 }
 
 const socket = io();
-const rtc = (() => {
+const connectData = (() => {
   const connection = new RTCPeerConnection();
+  // const channel = connection.createDataChannel("channel")
+
   return {
-    connection,
-    // channel: connection.createDataChannel("channel"),
     isAlreadyCalling: false,
+    connection,
+    // channel,
   }
-})
+})()
 
 // class GameConsole 
 // value private화를 위한, IIFE return class
@@ -88,6 +90,8 @@ function init() {
     if (isPartner) game.partnerValue = value 
     else  game.playerValue = value
     
+    // connectData.channel.send(value);
+
     const btnList = document.querySelectorAll(`#${isPartner ? 'partner' : 'player'} .game-btn`);
     _.map(btnList, btn => {
       if (btn.id === value) {
@@ -152,18 +156,18 @@ function init() {
   });
   socket.on("partner-out-room", (data) => {
     game.partnerStatus = false;
-    rtc.isAlreadyCalling = false;
+    connectData.isAlreadyCalling = false;
     writeNotice(game)
   });
 
   socket.on("call-made", async (data) => {
     console.log('on call-made')
     // 받은 offer에 대한 설정 후, answer 전달
-    await rtc.connection.setRemoteDescription(
+    await connectData.connection.setRemoteDescription(
       new RTCSessionDescription(data.offer)
     );
-    const answer = await rtc.connection.createAnswer();
-    await rtc.connection.setLocalDescription(new RTCSessionDescription(answer));
+    const answer = await connectData.connection.createAnswer();
+    await connectData.connection.setLocalDescription(new RTCSessionDescription(answer));
   
     socket.emit("make-answer", {
       answer,
@@ -172,19 +176,19 @@ function init() {
     getCalled = true;
   });
   socket.on("answer-made", async data => {
-    await rtc.connection.setRemoteDescription(
+    await connectData.connection.setRemoteDescription(
       new RTCSessionDescription(data.answer)
     );
   
-    if (!rtc.isAlreadyCalling) {
-      rtc.isAlreadyCalling = true;
+    if (!connectData.isAlreadyCalling) {
+      connectData.isAlreadyCalling = true;
       callUser(data.id);
     }
   });
 
   async function callUser(socketId) {
-    const offer = await rtc.connection.createOffer();  
-    rtc.connection.setLocalDescription(new RTCSessionDescription(offer));
+    const offer = await connectData.connection.createOffer();  
+    connectData.connection.setLocalDescription(new RTCSessionDescription(offer));
     // offer 작성 후, 파트너에게 전송
 
     socket.emit("call-user", {
@@ -196,6 +200,7 @@ function init() {
 
   initHTML()
 }
+  
 
 init()
 
