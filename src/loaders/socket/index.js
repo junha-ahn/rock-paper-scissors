@@ -27,7 +27,7 @@ module.exports = server => {
         if (socket.joinRooms) socket.joinRooms.push(room)
         else socket.joinRooms = [room];
         
-        io.to(partner).emit('partner-join-room', {
+        io.to(partner).emit('partner-joined-room', {
           partnerId: socket.id,
         })
       };
@@ -50,7 +50,7 @@ module.exports = server => {
         const {
           partner 
         } = out(room)
-        if (partner) io.to(partner).emit('partner-out-room', {})
+        if (partner) io.to(partner).emit('partner-left-room', {})
       })
     });
 

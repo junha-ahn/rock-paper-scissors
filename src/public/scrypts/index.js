@@ -61,6 +61,7 @@ function init() {
   const perrConnection = new RTCPeerConnection()
   const dataChannel = perrConnection.createDataChannel("label")
   perrConnection.ondatachannel = function(event) {
+    console.log('ondatachannel')
     const channel = event.channel;
     channel.onmessage = function(event) {
       console.log('onmessage: ', event.data);
@@ -134,21 +135,25 @@ function init() {
   });
 
   socket.on("joined-room", (data) => {
-    if (!data.status) return alert('이미 가득찬 방입니다');
+    if (!data.status) {
+      socket.emit("join-room", {
+        room: null,
+      });
+      alert('이미 가득찬 방입니다');
+    }
     if (config.room !== data.room) location.href = "/?key=" + data.room;
     if (data.partner) game.partnerStatus = true;
     writeNotice()
   });
-  socket.on("partner-join-room", ({
+  socket.on("partner-joined-room", ({
     partnerId,
   }) => {
     game.partnerStatus = true;
     callUser(partnerId);
     writeNotice()
   });
-  socket.on("partner-out-room", (data) => {
+  socket.on("partner-left-room", (data) => {
     game.partnerStatus = false;
-    // isAlreadyCalling = false;
     writeNotice()
   });
 
