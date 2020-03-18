@@ -5,6 +5,16 @@ const config = {
   LOSE: -1,
 }
 
+const socket = io();
+const rtc = (() => {
+  const connection = new RTCPeerConnection();
+  return {
+    connection,
+    // channel: connection.createDataChannel("channel"),
+    isAlreadyCalling: false,
+  }
+})
+
 // class GameConsole 
 // value private화를 위한, IIFE return class
 const GameConsole = (() => { 
@@ -53,8 +63,6 @@ const GameConsole = (() => {
     }
   }
 })()
-
-const socket = io();
 const game = new GameConsole()
 
 function init() {
@@ -69,7 +77,6 @@ function init() {
     }
     const getText = (game) => {
       if (!game.partnerStatus) return text.WATTING_PARTNER
-      console.log(`my : ${game.playerValue}, partner: ${game.parterValue}`)
       if (!game.playerValue) return text.WATTING_PLAYER_CLICK
       if (!game.parterValue) return text.WATTING_PARTNER_CLICK
       return text[game.result]
@@ -81,7 +88,6 @@ function init() {
     if (isPartner) game.partnerValue = value 
     else  game.playerValue = value
     
-
     const btnList = document.querySelectorAll(`#${isPartner ? 'partner' : 'player'} .game-btn`);
     _.map(btnList, btn => {
       if (btn.id === value) {
@@ -130,21 +136,66 @@ function init() {
   socket.emit("join-room", {
     room: config.room,
   });
+
   socket.on("joined-room", (data) => {
     if (!data.status) return alert('이미 가득찬 방입니다');
     if (config.room !== data.room) location.href = "/?key=" + data.room;
     if (data.partner) game.partnerStatus = true;
     writeNotice(game)
   });
-  socket.on("partner-join-room", (data) => {
+  socket.on("partner-join-room", ({
+    partnerId,
+  }) => {
     game.partnerStatus = true;
+    callUser(partnerId);
     writeNotice(game)
   });
   socket.on("partner-out-room", (data) => {
     game.partnerStatus = false;
+    rtc.isAlreadyCalling = false;
     writeNotice(game)
   });
 
+  socket.on("call-made", async (data) => {
+    console.log('on call-made')
+    // 받은 offer에 대한 설정 후, answer 전달
+    await rtc.connection.setRemoteDescription(
+      new RTCSessionDescription(data.offer)
+    );
+    const answer = await rtc.connection.createAnswer();
+    await rtc.connection.setLocalDescription(new RTCSessionDescription(answer));
+  
+    socket.emit("make-answer", {
+      answer,
+      to: data.id
+    });
+    getCalled = true;
+  });
+  socket.on("answer-made", async data => {
+    await rtc.connection.setRemoteDescription(
+      new RTCSessionDescription(data.answer)
+    );
+  
+    if (!rtc.isAlreadyCalling) {
+      rtc.isAlreadyCalling = true;
+      callUser(data.id);
+    }
+  });
+
+  async function callUser(socketId) {
+    const offer = await rtc.connection.createOffer();  
+    rtc.connection.setLocalDescription(new RTCSessionDescription(offer));
+    // offer 작성 후, 파트너에게 전송
+
+    socket.emit("call-user", {
+      offer,
+      to: socketId
+    });
+  }
+  
+
   initHTML()
 }
+
 init()
+

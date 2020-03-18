@@ -37,5 +37,5 @@ module.exports = {
       activeRooms.delete(room)
       return { partner: null }
     }
-  }
+  },
 }
