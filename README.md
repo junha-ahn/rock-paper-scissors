@@ -5,6 +5,17 @@ Simple rock-paper-scissors game with WebRTC
 Socket은 서버를 통한 (양방향)통신이지만, WebRTC는 P2P 통신입니다.
 
 
+# 구조
+
+```
+src
+│   server.js       # App entry point
+└───controllers     # Express route 컨트롤러
+└───config          # 환경변수
+└───loaders         # 모듈 로더
+└───public          # html, css, js
+```
+
 # 참조
 
 - [퍼블리싱 관련](https://codepen.io/rafaelcastrocouto/pen/NWqgJPZ)
